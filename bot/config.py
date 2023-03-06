@@ -1,5 +1,4 @@
 import dotenv
-from pathlib import Path
 
 env = dotenv.dotenv_values(".env")
 

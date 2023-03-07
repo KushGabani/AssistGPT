@@ -32,6 +32,7 @@ pip install -r requirements.txt
 ```shell
 cd AssistGPT
 ```
+8. In `bot/bot.py` add your telegram username to the list of `allowed_telegram_usernames`
 9. Run the bot using
 ```shell
 python bot/bot.py

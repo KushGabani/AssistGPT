@@ -3,6 +3,6 @@ import dotenv
 env = dotenv.dotenv_values(".env")
 
 # config parameters
-telegram_token = env["TELEGRAM_BOT_TOKEN"]
-openai_api_key = env["OPENAI_API_KEY"]
-openai_org = env["OPENAI_ORG"]
+TELEGRAM_BOT_TOKEN = env["TELEGRAM_BOT_TOKEN"]
+OPENAI_API_KEY = env["OPENAI_API_KEY"]
+OPENAI_ORG = env["OPENAI_ORG"]

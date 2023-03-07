@@ -67,6 +67,10 @@ class ChatGPT:
 
             return answer, n_used_tokens, removed_n_dialog
 
+    def transcribe_audio(self, voice_file, bot_mode="assistant"):
+        with open(voice_file, "rb") as f:
+            return openai.Audio.translate('whisper-1', f)
+    
     def _build_prompt(self, user_prompt, dialog, bot_mode):
         base_prompt = BOT_MODES[bot_mode]["base_prompt"]
 

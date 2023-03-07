@@ -18,6 +18,7 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("help", handler.help, filters=user_filter))
     app.add_handler(CommandHandler("new", handler.new_chat, filters=user_filter))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & user_filter, handler.text_message))
+    app.add_handler(MessageHandler(filters.VOICE & ~filters.COMMAND & user_filter, handler.voice_message))
     app.add_handler(CommandHandler("mode", handler.show_bot_modes, filters=user_filter))
     app.add_handler(CallbackQueryHandler(handler.set_bot_mode, pattern='^set_bot_mode'))
     app.add_handler(CommandHandler("balance", handler.set_bot_mode, filters=user_filter))

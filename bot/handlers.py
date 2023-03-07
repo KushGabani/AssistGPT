@@ -1,14 +1,15 @@
-import traceback
+import os
 import html
 import json
 import logging
-from datetime import datetime
-import chatgpt
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import BadRequest
 from telegram.ext import CallbackContext
 from telegram.constants import ParseMode
+from pydub import AudioSegment
+
+import chatgpt
 
 class handler:
     def __init__(self):
@@ -48,32 +49,74 @@ class handler:
             pass
 
         try:
-            bot_mode = "assistant" # fetch the user's preference from database
-            prev_dialog = [] # fetch current session's previous dialogues
-
-            message = message or update.message.text
-            print(f'prompting for: {message[:50]}')
-            gpt = chatgpt.ChatGPT()
-
-            await update.message.chat.send_action(action="typing")
-            answer, n_used_tokens, removed_n_dialog = gpt.send_message(message, dialog=prev_dialog, bot_mode=bot_mode)
-
+            answer, n_used_tokens = await self._prompt_gpt(update, message or update.message.text)
             print(f'Used {n_used_tokens} tokens to generate response: {answer}')
             # new_dialog_message = {"user": message, "bot": "answer", "date": datetime.now()}
             # save the new dialog to user's session
             
         except Exception as e:
             self.logger.error(e)
-            return update.message.reply_text('Generation failed. Please try again later.')
+            return await update.message.reply_text('Generation failed. Please try again later.')
+
+    async def voice_message(self, update: Update, context: CallbackContext):
+        if update.edited_message is not None:
+            # do something about it
+            return
+
+        await update.message.chat.send_action(action="typing")
+
+        try:
+            print('downloading VN...')
+            file_name = update.message.voice.file_id
+            file = await context.bot.get_file(file_name)
+            
+            if file.file_size > 15 * 1024 * 1024:
+                self.logger.error('The audio prompt was too big for processing. Try something shorter.')
+                return await update.message.reply_text("Audio prompt too big. Try something short")
+
+            await file.download_to_drive(f'{file_name}.oga')
+            audio = AudioSegment.from_file(f"{file_name}.oga", format="ogg")
+            audio.export(f"{file_name}.mp3", format="mp3")
+            
+            bot_mode = "assistant"
+            gpt = chatgpt.ChatGPT()
+
+            print("transcribing audio...")
+            transcript = gpt.transcribe_audio(f"{file_name}.mp3", bot_mode)
+            print(transcript["text"])
+            await update.message.reply_text(f"Transcribed text is:\n<i>{transcript['text']}</i>", parse_mode=ParseMode.HTML)
+
+            os.remove(f"{file_name}.oga")
+            # os.remove(f"{file_name}.mp3")
+
+            answer, n_used_tokens = await self._prompt_gpt(update, transcript['text'])
+            print(f'Used {n_used_tokens} tokens to generate response: {answer}')
+
+        except Exception as e:
+            self.logger.error(e)
+            await update.message.reply_text('Transcription failed. Please try again later.')
+
+    async def _prompt_gpt(self, update: Update, message: str):
+        bot_mode = "assistant" # fetch the user's preference from database
+        prev_dialog = [] # fetch current session's previous dialogues
+
+        print(f'prompting for: {message}')
+        gpt = chatgpt.ChatGPT()
+
+        await update.message.chat.send_action(action="typing")
+        answer, n_used_tokens, removed_n_dialog = gpt.send_message(message, dialog=prev_dialog, bot_mode=bot_mode)
     
         if removed_n_dialog > 0:
             text = f"<i>Note</i> Your current dialog is too long, so <b>{removed_n_dialog} initial message(s)</b> were removed from the context.\nSend /new command to start new dialog"
             await update.message.reply_text(text, parse_mode=ParseMode.HTML)
+
         try:
             await update.message.reply_text(answer, parse_mode=ParseMode.HTML)
         except BadRequest:
             # Answer has invalid characters so we send it without parse_mode
             await update.message.reply_text(answer)
+
+        return answer, n_used_tokens
 
     async def show_bot_modes(self, update: Update, context: CallbackContext):
         keyboard = []
